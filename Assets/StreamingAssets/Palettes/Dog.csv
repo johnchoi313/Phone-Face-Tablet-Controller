@@ -1,0 +1,5 @@
+TITLE(text),COLOR(0-8),EMOTION(0-8),SPEECH(text),RATE(0.0-1.0),VOLUME(0.0-1.0)
+button title,0,0,enter speech,0,0
+button title,0,0,enter speech,0,0
+button title,0,0,enter speech,0,0
+button title,0,0,enter speech,0,0

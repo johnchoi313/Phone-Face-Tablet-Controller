@@ -1,0 +1,6 @@
+TITLE(text),COLOR(0-8),EMOTION(0-8),SPEECH(text),RATE(0.0-1.0),VOLUME(0.0-1.0)
+my,0,0,7,0,0
+golly,6,0,enter speech,0,0
+a,4,0,enter speech,0,0
+giant,2,0,enter speech,0,0
+cow,0,0,enter speech,0,0
