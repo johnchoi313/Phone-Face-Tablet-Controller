@@ -3,12 +3,14 @@
 **Then this is the software for you!***
 
 ![Face with Romibo Eyes](/Images/FaceTrack.gif)
+
 *Robot face with simple webcam face tracking enabled.*
 
 ## Summary <br/>
 The *Phone-Face-Tablet-Controller for Social Robotics* is an open, expandable software framework compatible with a wide variety of social therapy robots for Windows and Android. Built in **Unity 2017.1.5** and a variety of commercial-off-the-shelf parts and plugins, this allows you to connect an Android tablet or phone displaying an animated robot's face paired with a Windows or Android laptop, tablet, or smart phone as the controller. The controller app, controlled by a human operator, sends commands to the face app that control Speech-To-Text, expression, face color, and more via either a Bluetooth or LAN WiFi connection. If connected to an Arduino USB interface, we can also control 2-wheeled base motion for moving forwards, backwards, and turning left and right. The ultimate use case of this software is to teach and inspire children with autism and other special needs.
 
-![Tablet Controller Button Board](/Images/Buttons.png)
+![Tablet Controller Button Board](/Images/Buttons.PNG)
+
 *Tablet Controller button board view. See list of Palettes on the left, button grid in middle, and individual Button Speech parameters on right.*
 
 #### Phone Face Android Core Features: <br/>
@@ -30,19 +32,22 @@ The *Phone-Face-Tablet-Controller for Social Robotics* is an open, expandable so
 One of the coolest features of this social robot tablet controller phone face framework is that it allows the user to connect an Arduino-based board via USB directly to the phone face Android device *(given that the device has support for USB OTG devices.)* It is possible to send Arduino control signals from the tablet controller to the phone face either through LAN WiFi or Bluetooth, where the phone face is directly connected to the Arduino via USB OTG.
 
 ![Android-Android-Arduino Setup](/Images/Tank.jpg)
+
 *A full example setup with tablet controller and phone face connected via serial USB to an Arduino-based tank platform.*
 
 ![Spinning the Tank Base](/Images/Spin.gif)
+
 *Spinning the USB Arduino tank with Bluetooth Control from the tablet controller app!*
 
 Download the Arduino Code for Robot Tank Base here:
+
 (/ArduinoBluetoothTankControl/ArduinoBluetoothTankControl.ino)
 
 ## Special Integrations (NEW!) <br/>
 
 We've been working with the awesome team at **[Misty Robotics](https://www.mistyrobotics.com/)** to integrate the same tablet face controller app with their awesome line of social robots, in particular, the Misty I and Misty II.
 
-![Misty I](/Images/MistyII.jpg)
+![Misty II](/Images/mistyII.jpg)
 
 The main HTTP REST API wrapper code we created for connecting Unity to the Misty I Robot (which can be re-used in other Unity C# projects) can be found here: 
 
@@ -105,4 +110,5 @@ https://assetstore.unity.com/packages/2d/textures-materials/sky/gradient-sky-109
 Special thanks to **[Fine Arts Miracles](https://fineartmiracles.com/)** and their wonderful work in discovering methodologies to implement social robotics for therapy and early childhood education for making this project possible! Additional special thanks to the incredible previous work of Origami Robotics and their open source Romibo robots in creating a sounding board for the application of social robots everywhere!
 
 ![The original Romibo robot](/Images/romibo.jpg)
+
 *The original Romibo robot from Origami Robotics.*
