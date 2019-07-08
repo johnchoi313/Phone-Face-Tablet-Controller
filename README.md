@@ -56,7 +56,10 @@ Tablet Controller Compiled APK <br/>
 https://github.com/johnchoi313/Phone-Face-Tablet-Controller/blob/master/APKs/6-4-2019%20FAM%20Tank%20Controller.apk
 
 Misty I Controller Compiled APK <br/>
-https://github.com/johnchoi313/Phone-Face-Tablet-Controller/blob/master/Assets/Scripts/Misty.cs
+https://github.com/johnchoi313/Phone-Face-Tablet-Controller/blob/master/APKs/6-12-2019%20FAM%20Misty%20Controller.apk
+
+Misty II Controller Compiled APK <br/>
+https://github.com/johnchoi313/Phone-Face-Tablet-Controller/blob/master/APKs/7-8-2019%20FAM%20Misty%20II%20Controller.apk
 
 ## Links to Third Party Plugins <br/>
 There are quite a few third party plugins that were used to create this project, some free, and some paid. These plugins significantly expand the functionality of Unity (in particular, Unity for Android), that make this project possible. In order to fully compile this project correctly, you will need to download and load each of the following plugins in Unity:
