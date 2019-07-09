@@ -4,6 +4,7 @@ using System.Text;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 using Crosstales.RTVoice;
 using Crosstales.RTVoice.Model;
@@ -25,6 +26,8 @@ public class Misty : MonoBehaviour {
     public string imagename;
     //Head Variables
     public int pitch, roll, yaw;
+    //Arm Variables
+    public int leftArm, rightArm;
     //Track Variables
     public int left, right;
     public int linearVelocity, angularVelocity, timeMS;
@@ -45,7 +48,7 @@ public class Misty : MonoBehaviour {
     }
     public void setAddress(string address) { IP = address; PlayerPrefs.SetString("UDPAddress", address); }
     
-    //--- Change LED ---//
+    //--- Change LED ---// (red = 0-255 | green = 0-255 | blue = 0-255)
     //requests.post('http://'+self.ip+'/api/led',json={"Red": red,"Green": green,"Blue": blue})
     public void ChangeLED(int r, int g, int b) { red = r; green = g; blue = b;
         newHttpClient("http://"+IP+"/api/led", "{Red:" + red + ",Green:" + green + ",Blue:" + blue + "}");
@@ -61,47 +64,59 @@ public class Misty : MonoBehaviour {
     //--- Play Audio ---//
     //requests.post('http://'+self.ip+'/api/audio/play',json={"AssetId": file_name})
     public void PlayAudio(string filename) { audioname = filename;
-        newHttpClient("http://"+IP+"/api/audio/play", "{AssetId:\"" + audioname + "\"}");
+        newHttpClient("http://"+IP+"/api/audio/play", "{AssetId:\"" + audioname + "\",Volume:100}");
     }
 
     //--- Save Audio ---//
     //requests.post('http://'+self.ip+'/api/audio',json={"FileName": "tts.wav", "DataAsByteArrayString": "34,88,90,49,56,...", "ImmediatelyApply": True, "OverwriteExisting": True})
-    public void SaveAudio() { 
+    public void SaveAudio(string filename) { audioname = filename;
         string path = audiopath + ".wav";
         byte[] bytes = File.ReadAllBytes(path);
         int[] bytesAsInts = bytes.Select(x=>(int)x).ToArray();
         string bytesAsString = string.Join(",", Array.ConvertAll(bytesAsInts, x => x.ToString()));
-        newHttpClient("http://"+IP+"/api/audio", "{Filename:\"tts.wav\", DataAsByteArrayString:\"" + bytesAsString + "\",ImmediatelyApply:\"True\",OverwriteExisting:\"True\"}");   
-    }
-    public void OnEnable() { Speaker.OnSpeakAudioGenerationComplete += onSpeakAudioGenerationComplete; }
-    public void OnDisable() { Speaker.OnSpeakAudioGenerationComplete -= onSpeakAudioGenerationComplete; }
-    private void onSpeakAudioGenerationComplete(Crosstales.RTVoice.Model.Wrapper wrapper) {
-        SaveAudio(); Debug.Log("Speech generated: " + wrapper);
+        newHttpClient("http://"+IP+"/api/audio", "{Filename:\"" + filename + "\", DataAsByteArrayString:\"" + bytesAsString + "\",ImmediatelyApply:\"True\",OverwriteExisting:\"True\"}");   
     }
     
-    //--- Say TTS ---//
+    //--- Say TTS (Unity Android Only) ---//
     //rate = 0-3, pitch = 0-2, volume = 0-1
     public void SayTTS(string speech, float rate = 1, float pitch = 1, bool speak = false) { ttsSpeech = speech;
+        audioname = Regex.Replace(speech,"[^A-Za-z0-9]","").ToLower() + ".wav";
+        PlayAudio(audioname); 
+    }
+
+    //--- Save TTS (Unity Android Only) ---//
+    public void SaveTTS(string speech, float rate = 1, float pitch = 1, bool speak = false) { ttsSpeech = speech;
         if(speech != null && speech.Length > 0) { 
-            //Speaker.Generate(speech, "tts", null, rate, pitch, 1); 
             Speaker.Speak(speech, ttsAudio, null, speak, 1, 1, 1, audiopath); 
         }        
         Debug.Log("Saved speech: " + speech);   
     }
+    public void OnEnable() { Speaker.OnSpeakAudioGenerationComplete += onSpeakAudioGenerationComplete; }
+    public void OnDisable() { Speaker.OnSpeakAudioGenerationComplete -= onSpeakAudioGenerationComplete; }
+    private void onSpeakAudioGenerationComplete(Crosstales.RTVoice.Model.Wrapper wrapper) {
+        SaveAudio(audioname); 
+        Debug.Log("Speech generated: " + wrapper);
+    }
 
-    //--- Move Head ---//
+    //--- Move Head ---// (pitch = -9.5 to 34.9 | roll = -43 to 43 | yaw = -90 to 90)
     //requests.post('http://'+self.ip+'/api/head',json={"Pitch": pitch, "Roll": roll, "Yaw": yaw, "Velocity": velocity})
-    public void MoveHead(int p, int r, int y) { pitch = p; roll = r; yaw = y;
-        newHttpClient("http://"+IP+"/api/head", "{Pitch:"+pitch+",Roll:"+roll+",Yaw:"+yaw+"}");
+    public void MoveHead(int p, int r, int y, int v = 50) { pitch = p; roll = r; yaw = y;
+        newHttpClient("http://"+IP+"/api/head", "{Pitch:"+pitch+",Roll:"+roll+",Yaw:"+yaw+",Velocity:"+v+"}");
     }
     
-    //--- Drive Track ---//
+    //--- Move Arm ---// (leftArmPosition = -180 to 0 | leftArmPosition = -180 to 0)
+    //requests.post('http://'+self.ip+'/api/head',json={"Pitch": pitch, "Roll": roll, "Yaw": yaw, "Velocity": velocity})
+    public void MoveArms(int l, int r, int v = 50) { leftArm = l; rightArm = r;
+        newHttpClient("http://"+IP+"/api/arms/set", "{LeftArmPosition:"+leftArm+",RightArmPosition:"+rightArm+",LeftArmVelocity:"+v+",RightArmVelocity:"+v+"}");
+    }
+    
+    //--- Drive Track ---// (left = -100 to 100 | right = -100 to 100)
     //requests.post('http://'+self.ip+'/api/drive/track',json={"LeftTrackSpeed": left_track_speed,"RightTrackSpeed": right_track_speed})
     public void DriveTrack(int l, int r) { left = l; right = r;    
         newHttpClient("http://"+IP+"/api/drive/track", "{LeftTrackSpeed:\""+left+"\",RightTrackSpeed:\""+right+"\"}");
     }
 
-    //--- Drive Time ---//
+    //--- Drive Time ---// (left = -100 to 100 | right = -100 to 100)
     //requests.post('http://'+self.ip+'/api/drive/track',json={"LeftTrackSpeed": left_track_speed,"RightTrackSpeed": right_track_speed})
     public void DriveTime(int l, int a, int t) { linearVelocity = l; angularVelocity = a; timeMS = t;  
         newHttpClient("http://"+IP+"/api/drive/time", "{LinearVelocity:\""+linearVelocity+"\",AngularVelocity:\""+angularVelocity+"\", TimeMS:\""+timeMS+"\"}");
@@ -115,12 +130,17 @@ public class Misty : MonoBehaviour {
 
     //HTTP API quick helper function
     public void newHttpClient(string URI, string json) {
-        if(json != null && json.Length > 0) { Debug.Log(json); }    
+        if(json != null && json.Length > 0) { Debug.Log("JSON sent: " + json); }    
         new HttpClient().Post(new System.Uri(URI), new StringContent(json), HttpCompletionOption.AllResponseContent, (response) => {
             #pragma warning disable 0219
             if(response != null) { 
                 string responseData = response.ReadAsString(); 
                 Debug.Log(responseData);
+                //If we get an callback denoting upload successful, play it: (Because "ImmediatelyApply" doesn't work)
+                //if(responseData == "{\"result\":[{\"name\":\"tts.wav\",\"systemAsset\":false}],\"status\":\"Success\"}") {
+                if(responseData.Length > 47 && responseData.Substring(responseData.Length - 47) == ".wav\",\"systemAsset\":false}],\"status\":\"Success\"}") { PlayAudio(audioname); }
+                //IF we can't find TTS file pre-loaded onto Misty, make a new one and send it over.
+                if(responseData == "{\"error\":\"Unable to find requested audio clip.\",\"status\":\"Failed\"}") { SaveTTS(ttsSpeech); }
             }
             #pragma warning restore 0219
         });   

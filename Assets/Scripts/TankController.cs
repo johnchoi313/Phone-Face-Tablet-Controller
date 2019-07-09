@@ -45,7 +45,11 @@ public class TankController : MonoBehaviour {
       } 
       //If Misty, send data from Joystick to Misty device.
       else if(sendMode == SendMode.MISTY) {
-        misty.DriveTime((int)(joystick.GetY() * 100f), -(int)(joystick.GetX() * 100f), 1000);
+        if(new Vector2(joystick.GetX(),joystick.GetY()).magnitude > 0.05f) {
+          misty.DriveTime((int)(joystick.GetY() * 100f), -(int)(joystick.GetX() * 100f), 1000);
+        } else {
+          misty.Stop();
+        }
       }
     }
   }
@@ -63,8 +67,7 @@ public class TankController : MonoBehaviour {
 
   public void remoteControlTank(float horizontal, float vertical) {
     remoteReceiveTimer = remoteReceiveTime;
-    remoteX = horizontal;
-    remoteY = vertical;
+    remoteX = horizontal; remoteY = vertical;
   }
 
   public void controlTank(float horizontal, float vertical) {
@@ -75,20 +78,16 @@ public class TankController : MonoBehaviour {
       int right = (int)((vertical - horizontal) * 255);
       if(left > 255) { left = 255; } if(left < -255) { left = -255; }
       if(right > 255) { right = 255; } if(right < -255) { right = -255; }
-      json.AddField("L", left);
-      json.AddField("R", right);
+      json.AddField("L", left); json.AddField("R", right);
       if(serialPort) { serialPort.Write(json.ToString() + "\r\n"); }
     } else {
-      json.AddField("x", (int)(horizontal*100) );
-      json.AddField("y", (int)(vertical*100) );
+      json.AddField("x", (int)(horizontal*100) ); json.AddField("y", (int)(vertical*100) );
       if(sendMode == SendMode.BLUETOOTH) { if(bluetoothSender) { bluetoothSender.sendMessage("t" + json.ToString() + "\r\n"); } }
       else if(sendMode == SendMode.UDP) { if(udpSender) { udpSender.sendMessage("t" + json.ToString() + "\r\n"); } }
     }
   }
 
-  public void showHideJoystick() {
-    joystickUI.SetActive(!joystickUI.activeSelf);
-  } 
+  public void showHideJoystick() { joystickUI.SetActive(!joystickUI.activeSelf); } 
 
 }
 
