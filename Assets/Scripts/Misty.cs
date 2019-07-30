@@ -36,12 +36,12 @@ public class Misty : MonoBehaviour {
     private string audiopath;
     private string SLASH;
     public string ttsSpeech;
-    public AudioSource ttsAudio;
     
     //--- Change IP Port Initialization ---//
     public void Start() {
         SLASH = (Application.platform == RuntimePlatform.Android)?"/":"\\";
-        audiopath = Application.persistentDataPath + SLASH + "tts";
+        audiopath = Application.persistentDataPath + SLASH;
+        Debug.Log("Local audio path: " + audiopath);
 
         IP = PlayerPrefs.GetString("UDPAddress", "127.0.0.1");
         if(IPField) { IPField.text = IP; }
@@ -68,13 +68,21 @@ public class Misty : MonoBehaviour {
     }
 
     //--- Save Audio ---//
-    //requests.post('http://'+self.ip+'/api/audio',json={"FileName": "tts.wav", "DataAsByteArrayString": "34,88,90,49,56,...", "ImmediatelyApply": True, "OverwriteExisting": True})
+    //requests.post('http://'+self.ip+'/api/audio',json={"FileName": "tts.wav", "Data": "34,88,90,49,56,...", "ImmediatelyApply": True, "OverwriteExisting": True})
     public void SaveAudio(string filename) { audioname = filename;
-        string path = audiopath + ".wav";
+        //Old method
+        string path = audiopath + "tts.wav";
         byte[] bytes = File.ReadAllBytes(path);
         int[] bytesAsInts = bytes.Select(x=>(int)x).ToArray();
         string bytesAsString = string.Join(",", Array.ConvertAll(bytesAsInts, x => x.ToString()));
-        newHttpClient("http://"+IP+"/api/audio", "{Filename:\"" + filename + "\", DataAsByteArrayString:\"" + bytesAsString + "\",ImmediatelyApply:\"True\",OverwriteExisting:\"True\"}");   
+        //New method
+        string base64String = Convert.ToBase64String(bytes);
+        //Save data as text to see
+        StreamWriter writer = new StreamWriter(audiopath + "tts.txt", false); //true to append, false to overwrite
+        writer.WriteLine(base64String); 
+        writer.Close();
+        //Send it over!
+        newHttpClient("http://"+IP+"/api/audio", "{FileName:\"" + filename + "\", Data:\"" + base64String + "\",ImmediatelyApply:true, OverwriteExisting:true}");   
     }
     
     //--- Say TTS (Unity Android Only) ---//
@@ -87,15 +95,16 @@ public class Misty : MonoBehaviour {
     //--- Save TTS (Unity Android Only) ---//
     public void SaveTTS(string speech, float rate = 1, float pitch = 1, bool speak = false) { ttsSpeech = speech;
         if(speech != null && speech.Length > 0) { 
-            Speaker.Speak(speech, ttsAudio, null, speak, 1, 1, 1, audiopath); 
+            Speaker.Speak(speech, null, null, speak, rate, pitch, 1, audiopath + "tts"); //rate = 0-3, pitch = 0-2, volume = 0-1
+            audioname = Regex.Replace(speech,"[^A-Za-z0-9]","").ToLower() + ".wav";
         }        
         Debug.Log("Saved speech: " + speech);   
     }
     public void OnEnable() { Speaker.OnSpeakAudioGenerationComplete += onSpeakAudioGenerationComplete; }
     public void OnDisable() { Speaker.OnSpeakAudioGenerationComplete -= onSpeakAudioGenerationComplete; }
     private void onSpeakAudioGenerationComplete(Crosstales.RTVoice.Model.Wrapper wrapper) {
-        SaveAudio(audioname); 
         Debug.Log("Speech generated: " + wrapper);
+        SaveAudio(audioname); 
     }
 
     //--- Move Head ---// (pitch = -9.5 to 34.9 | roll = -43 to 43 | yaw = -90 to 90)
@@ -132,17 +141,19 @@ public class Misty : MonoBehaviour {
     public void newHttpClient(string URI, string json) {
         if(json != null && json.Length > 0) { Debug.Log("JSON sent: " + json); }    
         new HttpClient().Post(new System.Uri(URI), new StringContent(json), HttpCompletionOption.AllResponseContent, (response) => {
-            #pragma warning disable 0219
+            //#pragma warning disable 0219
             if(response != null) { 
-                string responseData = response.ReadAsString(); 
-                Debug.Log(responseData);
+                string responseData = (response != null) ? response.ReadAsString() : "No response from HTTP target!"; 
+                //string responseData = response.ReadAsString(); 
+                Debug.Log("HTTP Response: " + responseData);
                 //If we get an callback denoting upload successful, play it: (Because "ImmediatelyApply" doesn't work)
                 //if(responseData == "{\"result\":[{\"name\":\"tts.wav\",\"systemAsset\":false}],\"status\":\"Success\"}") {
-                if(responseData.Length > 47 && responseData.Substring(responseData.Length - 47) == ".wav\",\"systemAsset\":false}],\"status\":\"Success\"}") { PlayAudio(audioname); }
+                //if(responseData.Length > 47 && responseData.Substring(responseData.Length - 47) == ".wav\",\"systemAsset\":false}],\"status\":\"Success\"}") { PlayAudio(audioname); }
+                //if(responseData == {\"error\":\"Object reference not set to an instance of an object.\",\"status\":\"Failed\"}" ) { PlayAudio(audioname); }
                 //IF we can't find TTS file pre-loaded onto Misty, make a new one and send it over.
                 if(responseData == "{\"error\":\"Unable to find requested audio clip.\",\"status\":\"Failed\"}") { SaveTTS(ttsSpeech); }
             }
-            #pragma warning restore 0219
+            //#pragma warning restore 0219
         });   
     }
 }
