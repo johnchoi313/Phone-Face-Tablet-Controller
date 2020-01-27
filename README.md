@@ -1,4 +1,7 @@
 # Phone-Face-Tablet-Controller for Social Robotics!
+
+<img src="https://img.shields.io/badge/unity-2017.1.5f1-blue"/> <img src="https://img.shields.io/badge/platform-Android-green"/> <img src="https://img.shields.io/badge/supports-Misty II-orange"/> <img src="https://img.shields.io/badge/supports-Arduino-orange"/> <img src="https://img.shields.io/badge/license-GNU GPL v3-red"/> 
+
 *Are you interested in social robots? Do you have two Android devices laying around? Do love cute little robot faces? <br/>
 **Then this is the software for you!***
 
