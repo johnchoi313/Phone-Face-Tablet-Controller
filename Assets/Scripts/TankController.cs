@@ -9,7 +9,7 @@ using TechTweaking.Bluetooth;
 
 public class TankController : MonoBehaviour {
 
-  public enum SendMode { SERIAL, BLUETOOTH, UDP, NONE, MISTY };
+  public enum SendMode { NONE, UDP, MISTY, BLUETOOTH, SERIAL };
   public SendMode sendMode;
 
   public SimpleInputNamespace.Joystick joystick;
@@ -58,10 +58,13 @@ public class TankController : MonoBehaviour {
       else if(sendMode == SendMode.MISTY) {
         if(leftRotateButton.pressed || rightRotateButton.pressed) {
           misty.DriveTrack((int)(vertical*maxSpeed) - (int)(horizontal*maxSpeed), (int)(vertical*maxSpeed) + (int)(horizontal*maxSpeed));
+          //misty.DriveTime((int)(vertical*maxSpeed), -(int)(horizontal*maxSpeed), 1000);
+          //misty.Drive((int)(vertical*maxSpeed), -(int)(horizontal*maxSpeed));
         } else if(new Vector2(joystick.GetX(),joystick.GetY()).magnitude > 0.05f) {
-          misty.DriveTime((int)(vertical*maxSpeed), -(int)(horizontal*maxSpeed), 1000);
-        }
-        else {
+          //misty.DriveTrack((int)(vertical*maxSpeed) - (int)(horizontal*maxSpeed), (int)(vertical*maxSpeed) + (int)(horizontal*maxSpeed));
+          //misty.DriveTime((int)(vertical*maxSpeed), -(int)(horizontal*maxSpeed), 1000);
+          misty.Drive((int)(vertical*maxSpeed), -(int)(horizontal*maxSpeed));
+        } else {
           misty.Stop();
         }
       }
@@ -72,9 +75,9 @@ public class TankController : MonoBehaviour {
     switch(mode) {
       case 0: sendMode = SendMode.NONE; break;
       case 1: sendMode = SendMode.UDP; break;
-      case 2: sendMode = SendMode.BLUETOOTH; break;
-      case 3: sendMode = SendMode.SERIAL; if(serialPortObject) { serialPortObject.SetActive(true); } break;
-      case 4: sendMode = SendMode.MISTY; break;
+      case 2: sendMode = SendMode.MISTY; break;
+      case 3: sendMode = SendMode.BLUETOOTH; break;
+      case 4: sendMode = SendMode.SERIAL; if(serialPortObject) { serialPortObject.SetActive(true); } break;
       default: sendMode = SendMode.NONE; break;
     }
   }
@@ -102,7 +105,6 @@ public class TankController : MonoBehaviour {
   }
 
   public void showHideJoystick() { joystickUI.SetActive(!joystickUI.activeSelf); } 
-
 }
 
 

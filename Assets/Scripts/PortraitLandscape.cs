@@ -5,34 +5,52 @@ using System.Collections.Generic;
 
 public class PortraitLandscape : MonoBehaviour {
 
-	public enum Orientation { Landscape, Portrait };
-	private Orientation orientation = Orientation.Landscape;
+	public enum Orientation { LandscapeLeft, LandscapeRight, PortraitLeft, PortraitRight };
+	private Orientation orientation = Orientation.LandscapeLeft;
 
-	public Vector3 landscapePosition;
-	public Vector3 portraitPosition;
+	public Vector3 landscapePosition, portraitPosition;
+    public ParticleSystem singleNotes, doubleNotes;
 	public Transform mainCamera;
 	public Dropdown dropdown;
 
 	public void switchOrientation() {
-		setOrientation((orientation == Orientation.Landscape) ? Orientation.Portrait : Orientation.Landscape);
+		switch(orientation) {
+			case Orientation.LandscapeLeft: setOrientation(Orientation.LandscapeRight); break;
+			case Orientation.LandscapeRight: setOrientation(Orientation.PortraitLeft); break;
+			case Orientation.PortraitLeft: setOrientation(Orientation.PortraitRight); break;
+			case Orientation.PortraitRight: setOrientation(Orientation.LandscapeLeft); break;
+		}
 	}
-	public void setOrientation(int mode) {
-		if(mode < 0 || mode > 1) { mode = 0; }
-		setOrientation((mode == 0) ? Orientation.Landscape : Orientation.Portrait);
+	public void setOrientation(int mode) { mode = mode % 4;
+		switch(mode) {
+			case 0: setOrientation(Orientation.LandscapeLeft); break;
+			case 1: setOrientation(Orientation.LandscapeRight); break;
+			case 2: setOrientation(Orientation.PortraitLeft); break;
+			case 3: setOrientation(Orientation.PortraitRight); break;
+		}
 	}
 	public void setOrientation(Orientation orient) {
+		//Set orientation position
 		orientation = orient;
-		mainCamera.position = (orient == Orientation.Landscape) ? landscapePosition : portraitPosition;
-		mainCamera.localEulerAngles = (orient == Orientation.Landscape) ? new Vector3(0,0,0) : new Vector3(0,0,-90); 
-		PlayerPrefs.SetInt("Orientation", (orient == Orientation.Landscape) ? 0 : 1);
-		if(dropdown != null) { dropdown.value = (orient == Orientation.Landscape) ? 0 : 1; }
-    }
+		mainCamera.position = (orient == Orientation.LandscapeLeft || orient == Orientation.LandscapeRight) ? landscapePosition : portraitPosition;
+		//Set orientation angle
+		int mode = 0; float faceAngle = 0, noteAngle = 0; 
+		switch(orientation) {
+			case Orientation.LandscapeLeft: mode = 0; faceAngle = 0; noteAngle = 0; break;
+			case Orientation.LandscapeRight: mode = 1; faceAngle = 180; noteAngle = 3.14f; break;
+			case Orientation.PortraitLeft: mode = 2; faceAngle = -90; noteAngle = -1.57f; break;
+			case Orientation.PortraitRight: mode = 3; faceAngle = 90; noteAngle = 1.57f; break;
+		}
+    	PlayerPrefs.SetInt("Orientation", mode);
+		if(dropdown != null) { dropdown.value = mode; }
+    	mainCamera.localEulerAngles = new Vector3(0, 0, faceAngle);
+        if(singleNotes != null) { singleNotes.startRotation = noteAngle; }
+        if(doubleNotes != null) { doubleNotes.startRotation = noteAngle; }
+	}
 
-	void Start() {
-		setOrientation((PlayerPrefs.GetInt("Orientation", 0) == 0) ? Orientation.Landscape : Orientation.Portrait); 
-	}
-	void Update () {
-		if(Input.GetKeyDown(KeyCode.O)) { switchOrientation(); }
-	}
+	//On start, load orientation
+	void Start() { setOrientation(PlayerPrefs.GetInt("Orientation", 0)); }
+	//On [O] press, switch orientation
+	void Update () { if(Input.GetKeyDown(KeyCode.O)) { switchOrientation(); } }
 
 }

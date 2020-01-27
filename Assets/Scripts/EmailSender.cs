@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
+
+using System.IO;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
@@ -22,8 +24,8 @@ namespace UT.MailSample {
         public InputField Subject;
         public InputField Body;
         public Toggle attachMultiplePalettes;
-        public Button SendButton;
         public Text emailSender;
+        public GameObject emailPanel;
 
         // Demonstrates the email sending feature.
         public void Send() {
@@ -54,7 +56,7 @@ namespace UT.MailSample {
                     }
                 }
             }
-            advancedController.hideEmailPanel();
+            emailPanel.SetActive(false);
         }
 
         // Builds UT.MailMessage which is then can be used for composing or sending.
@@ -71,12 +73,14 @@ namespace UT.MailSample {
             foreach (string email in ToEmailsList(Bcc.text)) { mailMessage.AddBcc(email); }
 
             if (attachMultiplePalettes.isOn) { 
-                advancedController.SaveAllCSVPalettes();
-                foreach(string path in advancedController.getPalettePaths()) { mailMessage.AddAttachment(path); }
+                //advancedController.SaveAllCSVPalettes();
+                foreach(string path in advancedController.getPalettePaths()) { 
+                    mailMessage.AddAttachment(File.ReadAllBytes(path), advancedController.getPaletteNameFromFilePath(path)+".csv"); 
+                }
             } else { 
-                advancedController.SaveCSVPalette();
+                //advancedController.SaveCSVPalette();
                 string path = advancedController.getPalettePath();
-                if(path != null) { mailMessage.AddAttachment(path); } 
+                if(path != null) { mailMessage.AddAttachment(File.ReadAllBytes(path), advancedController.getPaletteNameFromFilePath(path)+".csv"); } 
                 else { Debug.Log("No palette selected! Please select a palette before emailing."); }
             }
 
@@ -90,7 +94,6 @@ namespace UT.MailSample {
             Debug.Assert(Bcc != null, "Please specify \"Bcc\"!");
             Debug.Assert(Subject != null, "Please specify \"Subject\"!");
             Debug.Assert(Body != null, "Please specify \"Body\"!");
-            Debug.Assert(SendButton != null, "Please specify \"SendButton\"!");
             Load();
 
             emailSender.text = "Sender address: " + EmailAddress;
@@ -100,12 +103,9 @@ namespace UT.MailSample {
                 moreButton.MenuItems = new MoreButton.PopupMenuItem[] {new MoreButton.PopupMenuItem("EXIT", () => Application.Quit())};
             }
 
-            SendButton.onClick.AddListener(Send);
-
-            if (!IsSmtpConfigured()) { SendButton.GetComponentInChildren<Text>().text = CantSendText; }
         } 
         private void Update() {
-            if (Input.GetKeyDown(KeyCode.Escape)) { advancedController.hideEmailPanel(); }
+            if (Input.GetKeyDown(KeyCode.Escape)) { emailPanel.SetActive(false); }
         }
         private void OnApplicationQuit() { Save(); }
 
@@ -116,7 +116,6 @@ namespace UT.MailSample {
             this.Bcc = null;
             this.Subject = null;
             this.Body = null;
-            this.SendButton = null;           
             OnValidate();
         }
         private void OnValidate() {
@@ -125,7 +124,6 @@ namespace UT.MailSample {
             FindObjectIfNotSet<InputField>("Bcc", ref this.Bcc);
             FindObjectIfNotSet<InputField>("Subject", ref this.Subject);
             FindObjectIfNotSet<InputField>("Body", ref this.Body);
-            FindObjectIfNotSet<Button>("Send", ref this.SendButton);
         }
         private void FindObjectIfNotSet<T>(string name, ref T control) {
             if (control == null) {

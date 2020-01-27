@@ -36,7 +36,14 @@ public class Misty : MonoBehaviour {
     private string audiopath;
     private string SLASH;
     public string ttsSpeech;
-    
+    public bool sendAudioOnGenerationComplete = false;
+
+    public void Update() {
+        if(Input.GetKeyDown(KeyCode.A)) {
+            EnableAudioService();
+        }
+    }
+
     //--- Change IP Port Initialization ---//
     public void Start() {
         SLASH = (Application.platform == RuntimePlatform.Android)?"/":"\\";
@@ -85,6 +92,18 @@ public class Misty : MonoBehaviour {
         newHttpClient("http://"+IP+"/api/audio", "{FileName:\"" + filename + "\", Data:\"" + base64String + "\",ImmediatelyApply:true, OverwriteExisting:true}");   
     }
     
+    //---Speak TTS (Misty Onboard TTS)---//
+    public void SpeakTTS(string speech, float rate = 1, float pitch = 1, float volume = 5) { ttsSpeech = speech;
+        if(speech != null && speech.Length > 0) { 
+            newHttpClient("http://"+IP+"/api/tts/speak", "{Text:\"" + speech + "\"}");
+            //newHttpClient("http://"+IP+"/api/tts/speak", "{Text:\"" + speech + "\", Flush:true, UtteranceId:First, Rate:"+int(rate*100)+", Pitch:"+int(pitch*100)+", Volume:"+int(volume*100)+"}");
+        }    
+        Debug.Log("Saved speech: " + speech);       
+    }
+    public void EnableAudioService() {
+        newHttpClient("http://"+IP+"/api/services/audio/enable", "");    
+    }
+
     //--- Say TTS (Unity Android Only) ---//
     //rate = 0-3, pitch = 0-2, volume = 0-1
     public void SayTTS(string speech, float rate = 1, float pitch = 1, bool speak = false) { ttsSpeech = speech;
@@ -104,7 +123,7 @@ public class Misty : MonoBehaviour {
     public void OnDisable() { Speaker.OnSpeakAudioGenerationComplete -= onSpeakAudioGenerationComplete; }
     private void onSpeakAudioGenerationComplete(Crosstales.RTVoice.Model.Wrapper wrapper) {
         Debug.Log("Speech generated: " + wrapper);
-        SaveAudio(audioname); 
+        if(sendAudioOnGenerationComplete) { SaveAudio(audioname); } 
     }
 
     //--- Move Head ---// (pitch = -9.5 to 34.9 | roll = -43 to 43 | yaw = -90 to 90)
@@ -117,6 +136,12 @@ public class Misty : MonoBehaviour {
     //requests.post('http://'+self.ip+'/api/head',json={"Pitch": pitch, "Roll": roll, "Yaw": yaw, "Velocity": velocity})
     public void MoveArms(int l, int r, int v = 50) { leftArm = l; rightArm = r;
         newHttpClient("http://"+IP+"/api/arms/set", "{LeftArmPosition:"+leftArm+",RightArmPosition:"+rightArm+",LeftArmVelocity:"+v+",RightArmVelocity:"+v+"}");
+    }
+
+    //--- Drive ---// (left = -100 to 100 | right = -100 to 100)
+    //requests.post('http://'+self.ip+'/api/drive/track',json={"LeftTrackSpeed": left_track_speed,"RightTrackSpeed": right_track_speed})
+    public void Drive(int l, int a) { linearVelocity = l; angularVelocity = a;  
+        newHttpClient("http://"+IP+"/api/drive", "{LinearVelocity:\""+linearVelocity+"\",AngularVelocity:\""+angularVelocity+"\"}");
     }
     
     //--- Drive Track ---// (left = -100 to 100 | right = -100 to 100)
@@ -152,6 +177,9 @@ public class Misty : MonoBehaviour {
                 //if(responseData == {\"error\":\"Object reference not set to an instance of an object.\",\"status\":\"Failed\"}" ) { PlayAudio(audioname); }
                 //IF we can't find TTS file pre-loaded onto Misty, make a new one and send it over.
                 if(responseData == "{\"error\":\"Unable to find requested audio clip.\",\"status\":\"Failed\"}") { SaveTTS(ttsSpeech); }
+
+                //For Misty Onboard TTS, enable Audio Service if it is disabled
+                if(responseData == "{\"error\":\"Audio Service must be enabled for Text-to-Speech\",\"status\":\"Failed\"}") { EnableAudioService(); }
             }
             //#pragma warning restore 0219
         });   

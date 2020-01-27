@@ -33,7 +33,7 @@ public class SliderControl {
 
     public void resize(int c) {
         count = c;
-        Debug.Log(count);
+        //Debug.Log(count);
         bool changed = false;
 
         float oldSize = scrollbar.size;

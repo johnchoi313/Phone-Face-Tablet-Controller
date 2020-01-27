@@ -13,26 +13,16 @@ using PygmyMonkey.FileBrowser;
 using TechTweaking.Bluetooth;
 using SimpleFileBrowser;
 
-public class AdvancedController : MonoBehaviour {
-
-  public enum SendMode { NONE, UDP, MISTY, BLUETOOTH };
-  public SendMode sendMode;
-  public Dropdown sendModeDropdown;
+public class WasedaController : MonoBehaviour {
 
   [Header("Connection Variables")]
-  public BluetoothConnection bluetoothSender;
   public UDPSender udpSender;
-  public Misty misty; public bool useMistyTTS = true;
-
   public Toggle autoSendToggle;
-  public GameObject bluetoothPanel;
-  public GameObject udpPanel;
   
   [Header("Palette Variables")]
   public GameObject paletteSelector;
   public GameObject paletteInstantiator;
   public InputField paletteTitle;
-  public InputField GoogleSheetsURL;
   public bool autoSaveLoadPalettes;
   private string defaultPalettePath;
   private List<Palette> palettes;
@@ -47,34 +37,32 @@ public class AdvancedController : MonoBehaviour {
 
   [Header("Speech Variables")]
   public InputField speechSynthesis;
+  public InputField buttonAnimation;
   public InputField buttonTitle;
+  public InputField buttonGaze;
+  public InputField voiceField; private string voice;
+  public Dropdown agentIDDropdown; private int agentID; 
   public Dropdown buttonColor;
   public Dropdown buttonEmotion;
   public Dropdown shortcutDropdown;
-  public Dropdown buttonGoal;
-  public Dropdown buttonSubgoalInstantiator;
-  public Dropdown buttonProficiency;
   public Toggle localTTSToggle;
   public Slider speechPitch;
   public Slider speechRate;
 
   [Header("Summary Variables")]
   public List<ButtonPress> buttonPresses;
-  public int totalButtonPresses = 0;
-
+  
+  [Header("Animation Settings")]
+  public List<string> animations;
+  
   [Header("Emotion Settings")]
-  public List<EmotionMap> emotions;
-
+  public List<string> emotions;
   [Header("Color Settings")]
   public List<ColorMap> colors;
-
-  [Header("Goal/Subgoal Settings")]
-  public List<GoalMap> goalmaps;
-
+  
   [Header("Summary Log Settings")]
   private float sessionDuration, buttonDuration;
   private bool sessionActive = false;
-  public InputField clientIDField;
   private string timezone = "";
 
   [Header("Other Variables")]
@@ -88,41 +76,18 @@ public class AdvancedController : MonoBehaviour {
   }
   public void sayTTS() {
     if(speechSynthesis.text != null && speechSynthesis.text.Length > 0) {
-      misty.sendAudioOnGenerationComplete = false;
       Speaker.Speak(speechSynthesis.text, null, null, true, speechRate.value, speechPitch.value, 1); //rate = 0-3, pitch = 0-2, volume = 0-1
     }                
   }
   
-  public void speakMistyTTS() {
-    misty.SpeakTTS(speechSynthesis.text, getSpeechRate(), getSpeechPitch()); //SpeakTTS(string speech, float rate = 1, float pitch = 1, float volume = 5)  
-  }
-  public void sayMistyTTS() {
-    if(speechSynthesis.text != null && speechSynthesis.text.Length > 0) {
-      if(useMistyTTS) {
-        misty.SpeakTTS(speechSynthesis.text, getSpeechRate(), getSpeechPitch()); //SpeakTTS(string speech, float rate = 1, float pitch = 1, float volume = 5)  
-      } else {
-        misty.sendAudioOnGenerationComplete = true;
-        misty.SayTTS(speechSynthesis.text, getSpeechRate(), getSpeechPitch(), true);
-      }
-    }                
-  }
-  public void saveMistyTTS() {
-    if(speechSynthesis.text != null && speechSynthesis.text.Length > 0) {
-      misty.sendAudioOnGenerationComplete = true;
-      misty.SaveTTS(speechSynthesis.text, getSpeechRate(), getSpeechPitch(), false);
-    }                
-  }
-
   //Checking for Keyboard Shortcuts
   void Update() {
     if(sessionActive) { sessionDuration += Time.deltaTime; }
-    
     if(buttonSelector.activeSelf) {
       if(0 <= buttonIndex && buttonIndex < getCurrentPaletteButtonCount() && getCurrentPaletteButtonCount() > 0) {
         buttonDuration += Time.deltaTime;
       }
     }
-
     //checkKeyboardShortcuts();
   }
   private void checkKeyboardShortcuts() {
@@ -171,57 +136,36 @@ public class AdvancedController : MonoBehaviour {
     //Get local timezone
     foreach(Match match in Regex.Matches(System.TimeZone.CurrentTimeZone.StandardName, "[A-Z]")) { timezone += match.Value; }
     //Check if anything is null
-    if(!buttonTitle)      { Debug.LogError("buttonTitle is null!"); }
-    if(!buttonColor)      { Debug.LogError("buttonColor is null!"); }
-    if(!buttonEmotion)    { Debug.LogError("buttonEmotion is null!"); }
-    if(!speechSynthesis)  { Debug.LogError("speechSynthesis is null!"); }
-    if(!speechRate)       { Debug.LogError("speechRate is null!"); }
-    if(!speechPitch)      { Debug.LogError("speechPitch is null!"); }
+    if(!buttonTitle)      { Debug.LogWarning("buttonTitle is null!"); }
+    if(!buttonColor)      { Debug.LogWarning("buttonColor is null!"); }
+    if(!buttonEmotion)    { Debug.LogWarning("buttonEmotion is null!"); }
+    if(!buttonAnimation)  { Debug.LogWarning("buttonAnimation is null!"); }
+    if(!speechSynthesis)  { Debug.LogWarning("speechSynthesis is null!"); }
+    if(!speechRate)       { Debug.LogWarning("speechRate is null!"); }
+    if(!speechPitch)      { Debug.LogWarning("speechPitch is null!"); }
     if(!shortcutDropdown) { Debug.LogWarning("shortcutDropdown is null!"); }
-  	SLASH = (Application.platform == RuntimePlatform.Android)?"/":"\\";
+  	SLASH = (Application.platform == RuntimePlatform.Android ||
+             Application.platform == RuntimePlatform.OSXPlayer ||
+             Application.platform == RuntimePlatform.OSXEditor)?"/":"\\";
     //defaultPalettePath = Application.streamingAssetsPath + "/Palettes";
+    setVoice(PlayerPrefs.GetString("Voice", ""));
+    agentIDDropdown.value = PlayerPrefs.GetInt("AgentID", 0);
+    localTTSToggle.isOn = PlayerPrefs.GetInt("LocalTTS", 0) > 0?true:false;
     defaultPalettePath = Application.persistentDataPath; //SLASH+ "/Palettes";
-    Debug.Log("DefaultPalettePath: " +  defaultPalettePath);
     palettes = new List<Palette>();
     InitSimpleFileBrowser();
-    initSendMode();
     initEmotionDropdown();
     initColorDropdown();
-    initGoalDropdown();
-    initSubgoalDropdown();
     //Optionally, load all palettes.
     if(autoSaveLoadPalettes) { LoadAllCSVPalettes(); }
   }
-  //Initializing Send Mode.
-  public void setSendMode(int mode) {
-    switch(mode) {
-      case 0: sendMode = SendMode.NONE; break;
-      case 1: sendMode = SendMode.UDP; break;
-      case 2: sendMode = SendMode.MISTY; break;
-      case 3: sendMode = SendMode.BLUETOOTH; break;
-      default: sendMode = SendMode.NONE; break;
-    }
-    PlayerPrefs.SetInt("SendMode", mode);
-    //Bluetooth specific
-    bluetoothPanel.SetActive(sendMode == SendMode.BLUETOOTH);
-    //UDP Specific
-    udpPanel.SetActive(sendMode == SendMode.UDP);
-    if(sendMode != SendMode.UDP) { udpSender.stopSenderThread(); }
-  }
-  public void initSendMode() { 
-    sendModeDropdown.value = PlayerPrefs.GetInt("SendMode", 0); 
-    localTTSToggle.isOn = PlayerPrefs.GetInt("LocalTTS", 0)>0?true:false;
-  }
   //Initializing Emotions.
   public void initEmotionDropdown() {
-    List<string> defaultEmotions = new List<string>();
-    foreach(EmotionMap emotion in emotions) { defaultEmotions.Add(emotion.defaultEmotion); }
     buttonEmotion.ClearOptions();
-    buttonEmotion.AddOptions(defaultEmotions);
+    buttonEmotion.AddOptions(emotions);
     if (buttonEmotion.options.Count > 0) { buttonEmotion.value = 0; }
     else { Debug.LogWarning("No emotions set! Please init emotions."); }
   }
-
   //Initializing Colors.
   public void initColorDropdown() {
     buttonColor.ClearOptions();
@@ -230,41 +174,6 @@ public class AdvancedController : MonoBehaviour {
     buttonColor.AddOptions(colorOptions);
     if (colorOptions.Count > 0) { buttonColor.value = 0; }
     else { Debug.LogWarning("No colors set! Please init colors."); }
-  }
-  //Initializing Goal
-  public void initGoalDropdown() {
-    buttonGoal.ClearOptions();
-    List<string> goalOptions = new List<string>();
-    foreach (GoalMap goalmap in goalmaps) { goalOptions.Add(goalmap.goal); }
-    buttonGoal.AddOptions(goalOptions);
-    if (goalOptions.Count > 0) { buttonGoal.value = 0; }
-    else { Debug.LogWarning("No goals set! Please init goals."); }
-  }
-  //Initializing Subgoals
-  public void initSubgoalDropdown() {    
-    buttonSubgoalInstantiator.gameObject.SetActive(false);
-    foreach(GoalMap goalmap in goalmaps) {
-      goalmap.subgoalDropdown = Instantiate(buttonSubgoalInstantiator, Vector3.zero, Quaternion.identity);
-      goalmap.subgoalDropdown.transform.SetParent(buttonSubgoalInstantiator.transform.parent, true);
-      goalmap.subgoalDropdown.transform.localScale = new Vector3(1,1,1);
-      goalmap.subgoalDropdown.GetComponent<RectTransform>().anchoredPosition = buttonSubgoalInstantiator.GetComponent<RectTransform>().anchoredPosition;
-      goalmap.subgoalDropdown.gameObject.SetActive(false);
-      goalmap.subgoalDropdown.gameObject.name = "Button Subgoal Dropdown (" + goalmap.goal + ")";
-      goalmap.subgoalDropdown.ClearOptions();
-      goalmap.subgoalDropdown.AddOptions(goalmap.subgoals); 
-    }
-    switchSubgoalDropdown(0,0);
-  }
-  //Switch Subgoals
-  public void switchSubgoalDropdown(int goal, int subgoal = 0) {
-    if(0 <= goal && goal < goalmaps.Count) {
-      foreach(GoalMap goalmap in goalmaps) {
-        goalmap.subgoalDropdown.gameObject.SetActive(false);
-      }
-      goalmaps[goal].subgoalDropdown.gameObject.SetActive(true);
-      goalmaps[goal].subgoalDropdown.value = (goalmaps[goal].subgoals.Count>0) ? 1 : 0;
-      goalmaps[goal].subgoalDropdown.value = (0 <= subgoal && subgoal < goalmaps[goal].subgoals.Count) ? subgoal : 0;
-    } else { Debug.LogWarning("Goal [" + goal + "] out of range when switching subgoal dropdown!"); }
   }
   //Initializing Save/Load Browser
   void InitSimpleFileBrowser() {  //Android only.
@@ -287,13 +196,8 @@ public class AdvancedController : MonoBehaviour {
     });
   }
   public void LoadAllCSVPalettes() {
-    //DirectoryInfo directory = new DirectoryInfo(getPalettePathFolder());
-    //FileInfo[] info = directory.GetFiles("*.csv"); 
-    //foreach(FileInfo file in info) {  LoadCSVPalette(getPalettePathFolder() + "/" + file.Name  + ".csv"); }
     string[] filePaths = System.IO.Directory.GetFiles(getPalettePathFolder(), "*.csv");
-    foreach(string filePath in filePaths) { 
-      LoadCSVPalette(filePath); 
-    }
+    foreach(string filePath in filePaths) { LoadCSVPalette(filePath); }
   }
   public void LoadCSVPalette(string path) {
     //NO WEIRD FILE NAMES!
@@ -358,43 +262,22 @@ public class AdvancedController : MonoBehaviour {
       if(table.Length>i && table[i].Length>5) {
         if(!float.TryParse(table[i][5], out pitch)) { Debug.LogWarning("Table ["+i+"][5] must be float!"); }
       }
-      setSpeechPitch(pitch); 
+      setSpeechPitch(pitch);
+      //Set Button Animation
+      string animation = (table.Length>i && table[i].Length>6 && table[i][6] != null) ? table[i][6] : "";
+      setButtonAnimation(animation); 
+      //Set Button Gaze
+      string gaze = (table.Length>i && table[i].Length>7 && table[i][7] != null) ? table[i][7] : "";
+      setButtonGaze(gaze); 
       //Set Shortcut Key
-      /* if(shortcutDropdown) {
+      if(shortcutDropdown) {
         int key = 0; 
-        if(table.Length>i && table[i].Length>6) {
-          if(!int.TryParse(table[i][6], out key)) { Debug.LogWarning("Table ["+i+"][6] must be int!"); }
+        if(table.Length>i && table[i].Length>7) {
+          if(!int.TryParse(table[i][7], out key)) { Debug.LogWarning("Table ["+i+"][7] must be int!"); }
         }
         setShortcutKey(key); 
-      } */
-      //Set Button GOAL 
-      int goal = 0; 
-      if(table.Length>i && table[i].Length>6) {
-        if(!int.TryParse(table[i][6], out goal)) { 
-          string text = (table[i][6] != null) ? table[i][6] : "None";
-          goal = getGoalIndexFromString(text);
-        }
       }
-      setButtonGoal(goal);
 
-      //Set Button SUBGOAL
-      int subgoal = 0; 
-      if(table.Length>i && table[i].Length>7) {
-        if(!int.TryParse(table[i][7], out subgoal)) { 
-          string text = (table.Length>i && table[i].Length>7 && table[i][7] != null) ? table[i][7] : "None";
-          subgoal = getSubgoalIndexFromString(goal,text);
-        }
-      }
-      setButtonSubgoal(subgoal); 
-      //Set Button PROFICIENCY
-      int proficiency = 0; 
-      if(table.Length>i && table[i].Length>8) {
-        if(!int.TryParse(table[i][8], out proficiency)) { 
-          string text = (table.Length>i && table[i].Length>8 && table[i][8] != null) ? table[i][8] : "None";
-          proficiency = getProficiencyIndexFromString(text);
-        }
-      }
-      setButtonProficiency(proficiency);
       //Deselect when done
       selectButton(-1);
     }
@@ -408,43 +291,6 @@ public class AdvancedController : MonoBehaviour {
     if(SimpleFileBrowser.FileBrowser.Success) { LoadCSVPalette(SimpleFileBrowser.FileBrowser.Result); }
     androidSaveLoadBackground.SetActive(false);
   }
-
-  ///*****************************************************///
-  ///***************GOOGLE SHEETS FUNCTIONS***************///
-  ///*****************************************************///
-  /* public void LoadGoogleSheetsPalette() {
-    string url = GoogleSheetsURL.text;
-    LoadGoogleSheetsPalette(url);
-  }
-  public void LoadGoogleSheetsPalette(string url) {
-    //Download CSV from Public Google Sheets
-    string csvurl = "";
-    if(url.Substring(url.LastIndexOf("/")).Length < 25) {
-      csvurl = url.Substring(0,url.LastIndexOf("/")) + "/export?format=csv&gid=0";
-    } else { 
-      csvurl = url + "/export?format=csv&gid=0";
-    }
-    Debug.Log(csvurl);
-    WWW data = new WWW (csvurl);
-    while(!data.isDone) {}
-    //Load CSV
-    string[][] table = CsvParser2.Parse(data.text); 
-    string title = GetGoogleSheetTitle(url);
-    LoadPalette(table, title);
-  }
-  private string GetGoogleSheetTitle(string url) {
-      //Download Html
-      WWW data = new WWW (url);
-      while(!data.isDone){}
-      // Define a regular expression for finding target.
-      Regex rx = new Regex(@"<meta property=""og:title"" content="".*?"">", RegexOptions.IgnoreCase);
-      //Find Matches.
-      MatchCollection matches = rx.Matches(data.text);
-      Debug.Log("Title found: " + matches.Count);
-      // Use match data to fill in slide data
-      if(matches.Count > 0) { return matches[0].Value.Substring(35, matches[0].Value.Length - 37); } //Apply title.
-      else { return ""; } //No title found.
-  } */
 
   ///**********************************************///
   ///***************SAVING FUNCTIONS***************///
@@ -480,20 +326,19 @@ public class AdvancedController : MonoBehaviour {
       //Change Palette Name to Path Name
       setPaletteTitle(getPaletteNameFromFilePath(path));
       //Create CSV String
-      string CSVString = "TITLE(text),COLOR(0-7),EMOTION(0-7),SPEECH(text),RATE(0.0-3.0),PITCH(0.0-2.0),GOAL(text),SUBGOAL(text),PROFICIENCY(text)"; 
+      string CSVString = "TITLE(text),COLOR,EMOTION,SPEECH(text),RATE(0.0-3.0),PITCH(0.0-2.0),ANIMATION(text),GAZE(text)"; 
       //Add button info to each row
       foreach(PaletteButton button in palettes[paletteIndex].buttons) {
         CSVString += "\r\n";
-        CSVString += Sanitize(button.title) + ",";
-        CSVString += Sanitize(colors[button.color].name) + ",";
-        CSVString += button.emotion + ",";
-        CSVString += Sanitize(button.speech) + ",";
+        CSVString += button.title + ",";
+        CSVString += colors[button.color].name + ",";
+        CSVString += emotions[button.emotion] + ",";
+        CSVString += button.speech + ",";
         CSVString += button.rate.ToString("F2") + ",";
         CSVString += button.pitch.ToString("F2") + ",";
-        //if(shortcutDropdown) { CSVString += button.shortcut; }
-        CSVString += Sanitize(goalmaps[button.goal].goal) + ",";
-        CSVString += Sanitize(goalmaps[button.goal].subgoals[button.subgoal]) + ",";
-        CSVString += Sanitize(buttonProficiency.options[button.proficiency].text) + ",";
+        CSVString += button.animation + ",";
+        CSVString += button.gaze + ",";
+        if(shortcutDropdown) { CSVString += button.shortcut; }
       }
       //Save Palette to file
       StreamWriter writer = new StreamWriter(path, false); //true to append, false to overwrite
@@ -533,84 +378,35 @@ public class AdvancedController : MonoBehaviour {
   ///***********************************************************///
   ///***************SUMMARY AND LOGGING FUNCTIONS***************///
   ///***********************************************************///
-  public void startSession() { sessionActive = true; sessionDuration = 0; totalButtonPresses = 0; resetGoalProficiencyCounter(); }
-  public void stopSession() { sessionActive = false; SaveSummary(); totalButtonPresses = 0; resetGoalProficiencyCounter(); }
-  public void incrementGoalProficiencyCounter(int goal, int proficiency) {
-    if(! (0 <= goal && goal < goalmaps.Count)) { Debug.Log("Goal [" + goal + "] out of range!"); return; }
-    if(! (0 <= proficiency && proficiency < buttonProficiency.options.Count)) { Debug.Log("Proficiency [" + proficiency + "] out of range!"); return; }
-    switch(proficiency) {
-      case 0: goalmaps[goal].none++; break;
-      case 1: goalmaps[goal].exposure++; break;
-      case 2: goalmaps[goal].understanding++; break;
-      case 3: goalmaps[goal].practicing++; break;
-      case 4: goalmaps[goal].demonstrating++; break;
-      default: Debug.Log("Proficiency [" + proficiency + "] out of range!"); break;
-    }
-  }
-  public void resetGoalProficiencyCounter() {
-    foreach(GoalMap goalmap in goalmaps) { goalmap.none = 0; goalmap.exposure = 0; goalmap.understanding = 0; goalmap.practicing = 0; goalmap.demonstrating = 0; }
-  }
+  public void startSession() { sessionActive = true; sessionDuration = 0; }
+  public void stopSession() { sessionActive = false; SaveSummary(); }
   public void AddToLog(ButtonPress buttonPress) { string title = "%Log_" + System.DateTime.Now.ToString("yyyy-MM-dd") + ".csv";
     string CSVString = "";
-    if(!File.Exists(defaultPalettePath + SLASH + title)) { CSVString += "Timestamp,Client ID,Palette Title,Button Presses,Response Time,Speech,Goal,Subgoal,Proficiency" + "\r\n"; }
+    if(!File.Exists(defaultPalettePath + SLASH + title)) { CSVString += "Timestamp,Response Time,Client ID,Palette Title,Speech,Goal,Subgoal,Proficiency" + "\r\n"; }
     CSVString += System.DateTime.Now.ToString("yyyy-MM-dd h:mm:sstt ") + timezone + ","; //Time Stamp
-    CSVString += clientIDField.text + ","; //Client ID
-    CSVString += palettes[paletteIndex].title + ","; //Title
-    CSVString += buttonPresses.Count + ","; //Total Button Presses
     CSVString += buttonDuration.ToString("n2") + "s" + ","; //Response time
+    CSVString += palettes[paletteIndex].title + ","; //Title
     CSVString += buttonPress.speech + ","; //Speech
-    CSVString += goalmaps[buttonPress.goal].goal + ","; //Goal
-    CSVString += goalmaps[buttonPress.goal].subgoals[buttonPress.subgoal] + ","; //Subgoal
-    CSVString += buttonProficiency.options[buttonPress.proficiency].text + ","; //Proficiency
-
     //Write to file
     StreamWriter writer = new StreamWriter(defaultPalettePath + SLASH + title, true); //true to append, false to overwrite
     writer.WriteLine(CSVString); 
     writer.Close();
   }
-
   public void SaveSummary() { string title = "%Summary_" + System.DateTime.Now.ToString("yyyy-MM-dd") + ".csv";
     if(!paletteSelector.activeSelf) { Debug.Log("No palette selected. No summary saved."); return; }
     //Create CSV String Top
     string CSVString = "";
     if(!File.Exists(defaultPalettePath + SLASH + title)) { 
-      CSVString += "Timestamp,Client ID,Palette Title,Total Button Presses,Duration,";
-      //With Proficiencies! 
-      foreach(GoalMap goalmap in goalmaps) { 
-        if(goalmap.goal.ToLower() != "none") { 
-          CSVString += goalmap.goal + "_none," + goalmap.goal + "_exposure," + goalmap.goal + "_understanding," + goalmap.goal + "_practicing," + goalmap.goal + "_demonstrating,"; 
-        }
-      }
+      CSVString += "Timestamp,Duration,Client ID,Palette Title,";
       CSVString += "\r\n";
     }
     CSVString += System.DateTime.Now.ToString("yyyy-MM-dd h:mm:sstt ") + timezone + ","; //Time Stamp
-    CSVString += clientIDField.text + ","; //Client ID
-    CSVString += palettes[paletteIndex].title + ","; //Title
-    CSVString += totalButtonPresses + ","; //Total Button Presses
     CSVString += (int)sessionDuration/60 + "m" + sessionDuration.ToString("n2") + "s" + ","; //Duration
-    //Profiencies
-    foreach(GoalMap goalmap in goalmaps) { 
-      if(goalmap.goal.ToLower() != "none") { 
-        CSVString += goalmap.none + "," + goalmap.exposure + "," + goalmap.understanding + "," + goalmap.practicing + "," + goalmap.demonstrating + ","; 
-      }
-    }
+    CSVString += palettes[paletteIndex].title + ","; //Title
     //Save Palette to file
     StreamWriter writer = new StreamWriter(defaultPalettePath + SLASH + title, true); //true to append, false to overwrite
     writer.WriteLine(CSVString); //Filename is palette name
     writer.Close();
-  }
-
-  void OnApplicationQuit() { 
-    if(clientIDField != null && clientIDField.text.Length > 0) { if(sessionActive) { stopSession(); } }
-    else { SaveSummary(); }
-    //if(autoSaveLoadPalettes && 0 <= paletteIndex && paletteIndex < getPaletteCount() && getPaletteCount() > 0 && palettes[paletteIndex].buttons.Count > 0) { SaveCSVPalette(); }
-    //SaveAllCSVPalettes();
-  }
-  void OnApplicationPause() { 
-    if(clientIDField != null && clientIDField.text.Length > 0) { if(sessionActive) { stopSession(); } }
-    else { SaveSummary(); }
-    //if(autoSaveLoadPalettes && 0 <= paletteIndex && paletteIndex < getPaletteCount() && getPaletteCount() > 0 && palettes[paletteIndex].buttons.Count > 0) { SaveCSVPalette(); }
-    //SaveAllCSVPalettes();
   }
 
   ///***********************************************///
@@ -700,8 +496,7 @@ public class AdvancedController : MonoBehaviour {
   public int getCurrentPaletteButtonCount() { 
     if(palettes != null && palettes.Count > 0 && paletteIndex > -1) {    
       if(palettes[paletteIndex].buttons != null) { return palettes[paletteIndex].buttons.Count; }
-    } 
-    return -1;
+    } return -1;
   }
   public void NewButton() {
     if(getPaletteCount() == 0) { NewPalette(); }
@@ -732,9 +527,9 @@ public class AdvancedController : MonoBehaviour {
         setSpeechRate(copiedPalette.rate);
         setSpeechPitch(copiedPalette.pitch);
         setShortcutKey(copiedPalette.shortcut);
-        setButtonGoal(copiedPalette.goal);
-        setButtonSubgoal(copiedPalette.subgoal);
-        setButtonProficiency(copiedPalette.proficiency);
+        setButtonAnimation(copiedPalette.animation);
+        setButtonGaze(copiedPalette.gaze);
+
       } else { Debug.LogWarning("Bad button index! Nothing copied."); }
     } else { Debug.LogWarning("No button selected! Nothing copied."); }
   }
@@ -765,24 +560,23 @@ public class AdvancedController : MonoBehaviour {
         PaletteButton button = palettes[paletteIndex].buttons[index];
         buttonIndex = index;
         buttonTitle.text = button.title;
+
         buttonColor.value = button.color;
         buttonEmotion.value = button.emotion;
+
+        buttonAnimation.text = button.animation;
+        buttonGaze.text = button.gaze;
+        
         speechSynthesis.text = button.speech;
         speechRate.value = button.rate;
         speechPitch.value = button.pitch;
         if(shortcutDropdown) { shortcutDropdown.value = button.shortcut; }
-        buttonGoal.value = button.goal;
-        switchSubgoalDropdown(button.goal, button.subgoal);
-        buttonProficiency.value = button.proficiency;
-        revert = new PaletteButton(buttonInstantiator, button.title, button.color, button.emotion, button.speech, button.rate, button.pitch, button.goal, button.subgoal, button.proficiency);
+        revert = new PaletteButton(buttonInstantiator, button.title, button.color, button.emotion, button.speech, button.rate, button.pitch);
         buttonSelector.GetComponent<RectTransform>().anchoredPosition = getButtonPositionByIndex(index) + new Vector2(-3,3);
         buttonSelector.SetActive(true);
         if(autoSend && autoSendToggle != null && autoSendToggle.isOn) {
-            totalButtonPresses++;
-            buttonPresses.Add(new ButtonPress(getSpeechSynthesis(), getButtonGoal(), getButtonSubgoal(), getButtonProficiency()));
-            incrementGoalProficiencyCounter(getButtonGoal(), getButtonProficiency());
-            AddToLog(buttonPresses[buttonPresses.Count - 1]);
-            sendMessage();
+          buttonPresses.Add(new ButtonPress(getSpeechSynthesis()));
+          sendMessage();
         }
         buttonDuration = 0;
       } 
@@ -790,20 +584,21 @@ public class AdvancedController : MonoBehaviour {
       else {
         buttonIndex = -1;
         buttonTitle.text = "";
+        
         buttonColor.value = 0;
         buttonEmotion.value = 0;
-        speechSynthesis.text = "";
         speechRate.value = 1;
         speechPitch.value = 1;
+        
+        speechSynthesis.text = "";
+        buttonAnimation.text = "";
+        buttonGaze.text = "";
+        
         if(shortcutDropdown) { shortcutDropdown.value = 0; }
-        buttonGoal.value = 0;
-        switchSubgoalDropdown(0,0);
-        buttonProficiency.value = 0;
         buttonSelector.SetActive(false);  
       }
     }
   }
-
   private Vector2 getButtonPositionByIndex(int index) { return new Vector2((index % 4) * 130 + 6, (index / 4) * -60); }
   private int getButtonIndexByPosition(Vector2 position) { return (((int)position.x -6) / 130) + (((int)position.y / -60) * 4); }
 
@@ -820,12 +615,11 @@ public class AdvancedController : MonoBehaviour {
           setButtonTitle(revert.title); 
           setButtonColor(revert.color);
           setButtonEmotion(revert.emotion); 
+          setButtonAnimation(revert.animation);
+          setButtonGaze(revert.gaze);
           setSpeechSynthesis(revert.speech); 
           setSpeechRate(revert.rate);
           setSpeechPitch(revert.pitch);
-          setButtonGoal(revert.goal);
-          setButtonSubgoal(revert.subgoal);
-          setButtonProficiency(revert.proficiency);
         } 
       } else { Debug.LogWarning("Bad button index! Nothing reverted."); }
     } else { Debug.LogWarning("No button selected! Nothing reverted."); }
@@ -851,6 +645,7 @@ public class AdvancedController : MonoBehaviour {
     palettes[paletteIndex].buttons[buttonIndex].button.GetComponent<Image>().color = colors[index].color;
   }
   public int getButtonEmotion() { return buttonEmotion.value; }
+  //public string getButtonEmotion() { return emotions[buttonEmotion.value]; }
   public void setButtonEmotion(int index) { 
     if(!checkValidButton())  {Debug.LogWarning("Bad button index! Button emotion not changed."); return; }
     buttonEmotion.value = index;
@@ -862,6 +657,13 @@ public class AdvancedController : MonoBehaviour {
     text = text.Replace(",", "");
     speechSynthesis.text = text;  
     palettes[paletteIndex].buttons[buttonIndex].speech = text;   
+  }
+  public string getButtonAnimation() { return buttonAnimation.text; }
+  public void setButtonAnimation(string text) { 
+    if(!checkValidButton()) { Debug.LogWarning("Bad button index! Button animation not changed."); return; }
+    text = text.Replace(",", "");
+    buttonAnimation.text = text;  
+    palettes[paletteIndex].buttons[buttonIndex].animation = text;   
   }
   public float getSpeechRate() { return speechRate.value; }
   public void setSpeechRate(float value) { 
@@ -880,26 +682,14 @@ public class AdvancedController : MonoBehaviour {
     if(!checkValidButton()) { Debug.LogWarning("Bad button index! Shortcut key not changed."); return; }
     palettes[paletteIndex].buttons[buttonIndex].shortcut = index; 
   }
-  public int getButtonGoal() { return buttonGoal.value; }
-  public void setButtonGoal(int index) { 
-    switchSubgoalDropdown(index, getButtonSubgoal());
-    if(!checkValidButton()) { Debug.LogWarning("Bad button index! Button goal not changed."); return; }
-    buttonGoal.value = index;
-    palettes[paletteIndex].buttons[buttonIndex].goal = index; 
+  public string getButtonGaze() { return buttonGaze.text; }
+  public void setButtonGaze(string text) { 
+    if(!checkValidButton()) { Debug.LogWarning("Bad button index! Button gaze not changed."); return; }
+    text = text.Replace(",", "");
+    buttonGaze.text = text;  
+    palettes[paletteIndex].buttons[buttonIndex].gaze = text;   
   }
-  public int getButtonSubgoal() { return goalmaps[buttonGoal.value].subgoalDropdown.value; }
-  public void setButtonSubgoal(int index) { 
-    if(!checkValidButton()) { Debug.LogWarning("Bad button index! Button subgoal not changed."); return; }
-    goalmaps[buttonGoal.value].subgoalDropdown.value = index;
-    palettes[paletteIndex].buttons[buttonIndex].subgoal = index; 
-  }
-  public int getButtonProficiency() { return buttonProficiency.value; }
-  public void setButtonProficiency(int index) { 
-    if(!checkValidButton()) { Debug.LogWarning("Bad button index! Button proficiency not changed."); return; }
-    buttonProficiency.value = index;
-    palettes[paletteIndex].buttons[buttonIndex].proficiency = index; 
-  }
-
+  
   //---Goal/Subgoal/Proficiency String to Index---//
   private int getColorIndexFromString(string name) { name = Sanitize(name);
     for(int i = 0; i < colors.Count; i++) { if (name.Replace(" ","").ToLower() == colors[i].name.Replace(" ","").ToLower()) { return i; } }
@@ -909,83 +699,63 @@ public class AdvancedController : MonoBehaviour {
     for(int i = 0; i < buttonEmotion.options.Count; i++) { if (emotion.Replace(" ","").ToLower() == buttonEmotion.options[i].text.Replace(" ","").ToLower()) { return i; } }
     return 0;
   }
-  private int getGoalIndexFromString(string goal) { goal = Sanitize(goal);
-    for(int i = 0; i < goalmaps.Count; i++) { if (goal.Replace(" ","").ToLower() == goalmaps[i].goal.Replace(" ","").ToLower()) { return i; } }
-    return 0;
-  }
-  private int getSubgoalIndexFromString(string goal, string subgoal) { goal = Sanitize(goal); subgoal = Sanitize(subgoal);
-    for(int i = 0; i < goalmaps.Count; i++) { 
-      if (goal.Replace(" ","").ToLower() == goalmaps[i].goal.Replace(" ","").ToLower()) { 
-        return getSubgoalIndexFromString(i, subgoal);
-      } 
-    }
-    return 0;
-  }
-  private int getSubgoalIndexFromString(int goal, string subgoal) { subgoal = Sanitize(subgoal);
-    if(!(0 <= goal && goal < goalmaps.Count)) { return 0; }
-    for(int j = 0; j < goalmaps[goal].subgoals.Count; j++) { if (subgoal.Replace(" ","").ToLower() == goalmaps[goal].subgoals[j].Replace(" ","").ToLower()) { return j; } }
-    return 0;
-  }
-  private int getProficiencyIndexFromString(string proficiency) { proficiency = Sanitize(proficiency);
-    for(int i = 0; i < buttonProficiency.options.Count; i++) { if (proficiency.Replace(" ","").ToLower() == buttonProficiency.options[i].text.Replace(" ","").ToLower()) { return i; } }
-    return 0;
-  }
-      
+   
+  //Setting target agent ID for multi agents 
+  public int getAgentID() { return agentID; } 
+  public void setAgentID(int i) { agentID = i; PlayerPrefs.SetInt("AgentID", i); }
+
+  //Setting voice name
+  public string getVoice() { return voice; } 
+  public void setVoice(string text) { voice = text; voiceField.text = text; PlayerPrefs.SetString("Voice", voice); }
+
   ///**************************************************///
   ///***************CONNECTION FUNCTIONS***************///
   ///**************************************************///
-  public void sendBluetoothMessage() { bluetoothSender.sendMessage(getJSON()); }
   public void sendUDPMessage() { udpSender.sendMessage(getJSON()); }
-  public void sendMistyMessage() { 
-    misty.MoveHead(Random.Range(-15,5),Random.Range(-20,20),Random.Range(-5,5));
-    misty.MoveArms(Random.Range(-180,0),Random.Range(-180,0)); 
-    misty.ChangeLED(getButtonColor32().r, getButtonColor32().g, getButtonColor32().b);
-    misty.ChangeImage(emotions[buttonEmotion.value].mistyEmotion);
-    
-    if(!localTTSToggle.isOn) { 
-      if(useMistyTTS) {
-        //Misty Onboard Generated TTS
-        misty.SpeakTTS(speechSynthesis.text, getSpeechRate(), getSpeechPitch()); //SpeakTTS(string speech, float rate = 1, float pitch = 1, float volume = 5)
-      } else {
-        //Android Controller Generated TTS
-        misty.SayTTS(speechSynthesis.text, getSpeechRate(), getSpeechPitch()); 
-      }
-    }
-  }
-
-  public void sendMessage() {
-    if(sendMode == SendMode.BLUETOOTH){sendBluetoothMessage();}
-    else if(sendMode == SendMode.MISTY){sendMistyMessage();}
-    else if(sendMode == SendMode.UDP){sendUDPMessage();}
-    if(localTTSToggle.isOn) { sayTTS(); } //For saying stuff on controller device
+  public void sendMessage() { sendUDPMessage();
+    if(localTTSToggle.isOn) { sayTTS(); }
   }
   
-  public void sendMistyBlink() { misty.ChangeImage("e_Blink.jpg"); }
-  public void sendBluetoothBlink() { bluetoothSender.sendMessage("blink"); }
-  public void sendUDPBlink() { udpSender.sendMessage("blink"); }
-  public void sendBlink() {
-    if(sendMode == SendMode.BLUETOOTH){sendBluetoothBlink();}
-    else if(sendMode == SendMode.MISTY){sendMistyBlink();}
-    else if(sendMode == SendMode.UDP){sendUDPBlink();}
-  }
+  private string getJSON() {     
+    //WASEDA Humanoid AI Controller
+    Behaviour behaviour = new Behaviour();
+    behaviour.agentID = getAgentID();
+    behaviour.voice = getVoice();
 
-  private string getJSON() { 
-    //FAM JSON
-    JSONObject json = new JSONObject();
-    json.AddField("ra", (int)(getSpeechRate() * 100));
-    json.AddField("v", (int)(getSpeechPitch() * 100));
-    json.AddField("e", getButtonEmotion());
-    json.AddField("s", localTTSToggle.isOn?"":getSpeechSynthesis());
-    json.AddField("r", getButtonColor32().r);
-    json.AddField("g", getButtonColor32().g);
-    json.AddField("b", getButtonColor32().b);
-    Debug.Log(json.ToString());
-    return json.ToString();
+    behaviour.speech = getSpeechSynthesis();
+    behaviour.pitch = getSpeechPitch();
+    behaviour.rate = getSpeechRate();
+    
+    behaviour.emotion =  emotions[getButtonEmotion()];
+    behaviour.animation = getButtonAnimation();
+    behaviour.gaze = getButtonGaze();
+
+    string json = JsonUtility.ToJson(behaviour);
+    Debug.Log(json); 
+    return json;
   }
 
   private string Sanitize(string text) {
     text = text.Replace("<", ""); text = text.Replace(">", ""); text = text.Replace(":", ""); text = text.Replace("\"", ""); 
     text = text.Replace("|", ""); text = text.Replace("?", ""); text = text.Replace("*", ""); return text.Replace(";", "");
   }
+}
 
+[System.Serializable] 
+public class Behaviour {
+  public int agentID = 0;
+  public string voice = "";
+
+  public string speech = "";
+  public float rate = 1f, pitch = 1f;
+
+  public string animation = "";
+  public float animationDuration = 1f;
+
+  public string emotion = "";
+  public float emotionAmount = 1f;
+  public float emotionDuration = 1f;
+
+  public string gaze = "";
+  public float gazeDuration = 0f;
 }

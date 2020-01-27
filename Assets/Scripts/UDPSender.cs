@@ -50,7 +50,7 @@ public class UDPSender : MonoBehaviour {
             if (senderMessage != null && senderMessage.Length > 0) {
                 sender = new UdpClient();
                 IPEndPoint sendEndPoint = new IPEndPoint(IPAddress.Parse(IP), senderPort);
-                Debug.Log(senderMessage);
+                //Debug.Log(senderMessage);
                 byte[] data = Encoding.UTF8.GetBytes(senderMessage);
                 sender.Send(data, data.Length, sendEndPoint);
                 senderMessage = null;

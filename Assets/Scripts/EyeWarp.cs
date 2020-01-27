@@ -8,7 +8,7 @@ public class EyeWarp : MonoBehaviour {
     public float spd;
     public float blink;
 
-    private Vector3 size;
+    public Vector3 size;
     private Vector3 pos;
 
     //face tracking
@@ -16,17 +16,17 @@ public class EyeWarp : MonoBehaviour {
     public float lookAmount = 1f;
     public float lookSpeed = 1f;
 
+    public void setSize(Vector3 s) { size = s; }
+
     void Start() {
         size = transform.localScale;
         pos = transform.localPosition;
     }
-
     void Update() {
         //Update scale
         transform.localScale = new Vector3(size.x + mag.x * Mathf.Sin(off.x + Time.time * spd),
                                           (size.y + mag.y * Mathf.Sin(off.y + Time.time * spd)) * Mathf.Abs(blink),
                                           (size.z + mag.z * Mathf.Sin(off.z + Time.time * spd)) * Mathf.Abs(blink));
-        
         //Update position
         if(faceDetector != null) {
             Vector3 newpos = pos + new Vector3(faceDetector.faceCenter.x * lookAmount, -faceDetector.faceCenter.y * lookAmount, 0);
@@ -34,4 +34,3 @@ public class EyeWarp : MonoBehaviour {
         }
     }
 }
-
