@@ -7,7 +7,7 @@ float leftSpeed = 0;
 float rightSpeed = 0;
 int leftTargetSpeed = 0;
 int rightTargetSpeed = 0;
-
+ 
 //LED Settings
 static uint32_t ledGroup;
 uint8_t red, green, blue;
@@ -17,6 +17,8 @@ String serialString = "";
 int timer = 800;
 
 void setup() {
+  //Setup Serial
+  Serial.begin(9600);
   //Setup Sphero
   rvr.configUART(&Serial1);
 }
